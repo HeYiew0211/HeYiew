@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+Thumbs.db
+
+# Xcode
+*/Build/
+*/DerivedData/
+*.xcuserdata
+*.xcworkspace/xcuserdata/
+*.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+*.xcworkspace/xcuserdata/
+xcuserdata/
+
+# IDE
+.vscode/
+.idea/
+
+# Temp files
+*.swp
+*.swo
+*~

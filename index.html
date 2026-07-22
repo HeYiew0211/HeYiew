@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>贪吃蛇</title>
+  <style>
+    /* ==================== CSS: RESET & BASE ==================== */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+      background-color: #F5F9F8;
+      color: #2C3E3F;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* ==================== CSS: PAGE LAYOUT ==================== */
+    .page {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      width: 100%;
+      min-height: 100vh;
+    }
+
+    .page.active {
+      display: flex;
+    }
+
+    /* ==================== CSS: MAIN MENU (PAGE 1) ==================== */
+    #page-menu {
+      position: relative;
+      overflow: hidden;
+    }
+
+    #page-menu h1 {
+      font-size: 48px;
+      font-weight: 700;
+      color: #4A9A8C;
+      letter-spacing: 8px;
+      margin-bottom: 8px;
+      position: relative;
+      z-index: 1;
+    }
+
+    #page-menu .subtitle {
+      font-size: 16px;
+      color: #7F9B9D;
+      margin-bottom: 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Logo: minimalist snake SVG container */
+    .logo-container {
+      position: relative;
+      z-index: 1;
+      margin-bottom: 4px;
+      animation: logoFloat 3s ease-in-out infinite;
+    }
+
+    .logo-container svg {
+      width: 120px;
+      height: 120px;
+    }
+
+    @keyframes logoFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    /* Dynamic background particles */
+    .bg-particles {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .bg-particle {
+      position: absolute;
+      border-radius: 50%;
+      background: #5CAC9D;
+      opacity: 0;
+      animation: particleDrift var(--dur) ease-in-out infinite;
+      animation-delay: var(--delay);
+    }
+
+    @keyframes particleDrift {
+      0% {
+        opacity: 0;
+        transform: translate(0, 0) scale(0);
+      }
+      10% {
+        opacity: 0.12;
+        transform: translate(10px, -10px) scale(1);
+      }
+      50% {
+        opacity: 0.08;
+        transform: translate(var(--tx), var(--ty)) scale(1.2);
+      }
+      90% {
+        opacity: 0.12;
+        transform: translate(5px, 5px) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(0, 0) scale(0);
+      }
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-12px); }
+    }
+
+    .hint-text {
+      font-size: 13px;
+      color: #A0B5B7;
+      text-align: center;
+      margin-top: 4px;
+      line-height: 1.8;
+    }
+
+    .hint-text kbd {
+      display: inline-block;
+      background: #FFFFFF;
+      border: 1px solid #D4E5E2;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: inherit;
+      font-size: 12px;
+      color: #5CAC9D;
+      margin: 0 2px;
+    }
+
+    /* ==================== CSS: BUTTONS ==================== */
+    .btn {
+      display: inline-block;
+      min-width: 220px;
+      padding: 14px 32px;
+      font-size: 18px;
+      font-weight: 500;
+      font-family: inherit;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 200ms ease;
+      outline: none;
+    }
+
+    .btn-primary {
+      background-color: #5CAC9D;
+      color: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(92, 172, 157, 0.25);
+    }
+
+    .btn-primary:hover {
+      background-color: #4A9A8C;
+      transform: scale(1.05);
+      box-shadow: 0 6px 24px rgba(92, 172, 157, 0.35);
+    }
+
+    .btn-secondary {
+      background-color: #FFFFFF;
+      color: #5CAC9D;
+      border: 2px solid #5CAC9D;
+    }
+
+    .btn-secondary:hover {
+      background-color: #F5F9F8;
+      transform: scale(1.05);
+      box-shadow: 0 4px 16px rgba(92, 172, 157, 0.15);
+    }
+
+    .btn-danger {
+      background-color: #E74C3C;
+      color: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(231, 76, 60, 0.25);
+    }
+
+    .btn-danger:hover {
+      background-color: #C0392B;
+      transform: scale(1.05);
+      box-shadow: 0 6px 24px rgba(231, 76, 60, 0.35);
+    }
+
+    .btn-small {
+      min-width: auto;
+      padding: 10px 24px;
+      font-size: 16px;
+    }
+
+    /* ==================== CSS: GAME PAGE (PAGE 2) ==================== */
+    .game-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 500px;
+      margin-bottom: 4px;
+    }
+
+    .score-display {
+      font-size: 22px;
+      font-weight: 600;
+      color: #2C3E3F;
+      background: #FFFFFF;
+      padding: 8px 20px;
+      border-radius: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+
+    .btn-icon {
+      width: 44px;
+      height: 44px;
+      font-size: 24px;
+      background: #FFFFFF;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      color: #5CAC9D;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      transition: all 200ms ease;
+    }
+
+    .btn-icon:hover {
+      background: #5CAC9D;
+      color: #FFFFFF;
+      transform: scale(1.1);
+    }
+
+    .game-canvas-wrapper {
+      background: #FFFFFF;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+      padding: 0;
+      line-height: 0;
+    }
+
+    canvas {
+      display: block;
+      border-radius: 8px;
+    }
+
+    /* ==================== CSS: MODALS ==================== */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-backdrop {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      transition: opacity 200ms ease;
+    }
+
+    .modal-content {
+      position: relative;
+      background: #FFFFFF;
+      border-radius: 16px;
+      padding: 40px 36px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      min-width: 320px;
+      max-width: 400px;
+      animation: modalEnter 200ms ease-out;
+    }
+
+    @keyframes modalEnter {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .modal-content h2 {
+      font-size: 28px;
+      font-weight: 600;
+      color: #2C3E3F;
+    }
+
+    .modal-content .final-score {
+      font-size: 20px;
+      color: #7F9B9D;
+    }
+
+    .modal-content .final-score span {
+      color: #5CAC9D;
+      font-weight: 700;
+      font-size: 28px;
+    }
+
+    /* ==================== CSS: DIFFICULTY OPTIONS ==================== */
+    .difficulty-options {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .btn-difficulty {
+      width: 100%;
+      padding: 14px 20px;
+      font-size: 18px;
+      font-weight: 500;
+      font-family: inherit;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 200ms ease;
+      border: 2px solid #D4E5E2;
+      background: #FFFFFF;
+      color: #2C3E3F;
+      text-align: center;
+    }
+
+    .btn-difficulty:hover {
+      border-color: #5CAC9D;
+      background: #F5F9F8;
+    }
+
+    .btn-difficulty.selected {
+      border-color: #5CAC9D;
+      background: #5CAC9D;
+      color: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(92, 172, 157, 0.3);
+    }
+
+    .difficulty-label {
+      font-size: 14px;
+      color: #7F9B9D;
+      display: block;
+      margin-top: 2px;
+    }
+
+    .btn-difficulty.selected .difficulty-label {
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    /* ==================== CSS: MODAL BUTTON ROW ==================== */
+    .modal-buttons {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .modal-buttons .btn {
+      flex: 1;
+      min-width: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== PAGE 1: MAIN MENU ==================== -->
+  <div id="page-menu" class="page active">
+    <!-- Dynamic background particles -->
+    <div class="bg-particles" id="bg-particles">
+      <span class="bg-particle" style="--dur: 8s; --delay: 0s; --tx: 60px; --ty: -80px; width: 16px; height: 16px; top: 30%; left: 20%;"></span>
+      <span class="bg-particle" style="--dur: 10s; --delay: 2s; --tx: -70px; --ty: -60px; width: 12px; height: 12px; top: 50%; left: 75%;"></span>
+      <span class="bg-particle" style="--dur: 9s; --delay: 4s; --tx: 50px; --ty: 70px; width: 10px; height: 10px; top: 70%; left: 30%;"></span>
+      <span class="bg-particle" style="--dur: 11s; --delay: 1s; --tx: -40px; --ty: -100px; width: 14px; height: 14px; top: 20%; left: 60%;"></span>
+      <span class="bg-particle" style="--dur: 7s; --delay: 5s; --tx: 80px; --ty: -40px; width: 8px; height: 8px; top: 60%; left: 10%;"></span>
+      <span class="bg-particle" style="--dur: 12s; --delay: 3s; --tx: -60px; --ty: 50px; width: 11px; height: 11px; top: 40%; left: 85%;"></span>
+      <span class="bg-particle" style="--dur: 9.5s; --delay: 6s; --tx: 30px; --ty: -90px; width: 13px; height: 13px; top: 80%; left: 45%;"></span>
+      <span class="bg-particle" style="--dur: 8.5s; --delay: 7s; --tx: -50px; --ty: -30px; width: 9px; height: 9px; top: 15%; left: 40%;"></span>
+    </div>
+
+    <!-- Minimalist snake logo (inline SVG) -->
+    <div class="logo-container">
+      <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <!-- Outer circle ring -->
+        <circle cx="60" cy="60" r="56" fill="none" stroke="#5CAC9D" stroke-width="3" opacity="0.6"/>
+        <circle cx="60" cy="60" r="52" fill="none" stroke="#5CAC9D" stroke-width="1" opacity="0.3"/>
+        <!-- Snake body: S-curve made of rounded overlapping segments -->
+        <!-- Head -->
+        <rect x="40" y="22" width="18" height="18" rx="7" fill="#4A9A8C"/>
+        <!-- Eye -->
+        <circle cx="52" cy="30" r="3" fill="#FFFFFF"/>
+        <circle cx="52.5" cy="29.5" r="1.2" fill="#2C3E3F"/>
+        <!-- Body segments -->
+        <rect x="38" y="40" width="18" height="18" rx="7" fill="#5CAC9D"/>
+        <rect x="36" y="56" width="18" height="18" rx="7" fill="#5CAC9D"/>
+        <rect x="40" y="72" width="18" height="18" rx="7" fill="#5CAC9D"/>
+        <rect x="50" y="84" width="18" height="18" rx="7" fill="#7ECDC0"/>
+        <!-- Tail tip -->
+        <rect x="62" y="92" width="12" height="12" rx="5" fill="#A8E0D8"/>
+        <!-- Tongue -->
+        <line x1="49" y1="22" x2="55" y2="8" stroke="#E74C3C" stroke-width="2" stroke-linecap="round"/>
+        <line x1="52" y1="22" x2="60" y2="8" stroke="#E74C3C" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <h1>贪吃蛇</h1>
+    <p class="subtitle">经典休闲小游戏</p>
+    <button class="btn btn-primary" id="btn-start">开始游戏</button>
+    <button class="btn btn-secondary" id="btn-settings">游戏设置</button>
+  </div>
+
+  <!-- ==================== PAGE 2: GAME PAGE ==================== -->
+  <div id="page-game" class="page">
+    <div class="game-header">
+      <div class="score-display" id="score-display">分数：0</div>
+      <button class="btn-icon" id="btn-gear" title="暂停">&#9881;</button>
+    </div>
+    <div class="game-canvas-wrapper">
+      <canvas id="game-canvas" width="500" height="500"></canvas>
+    </div>
+    <p class="hint-text"><kbd>↑↓←→</kbd> 或 <kbd>WASD</kbd> 移动 &nbsp;|&nbsp; <kbd>P</kbd> 暂停</p>
+  </div>
+
+  <!-- ==================== MODAL 3: DIFFICULTY SETTINGS ==================== -->
+  <div id="modal-difficulty" class="modal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <h2>游戏设置</h2>
+      <div class="difficulty-options">
+        <button class="btn-difficulty" data-difficulty="easy">
+          简单
+          <span class="difficulty-label">无障碍物 · 无红蛇 · 慢速</span>
+        </button>
+        <button class="btn-difficulty selected" data-difficulty="normal">
+          普通
+          <span class="difficulty-label">8个障碍物 · 1条红蛇 · 中速</span>
+        </button>
+        <button class="btn-difficulty" data-difficulty="hard">
+          困难
+          <span class="difficulty-label">15个障碍物 · 2条红蛇 · 快速</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 4: DEATH / GAME OVER ==================== -->
+  <div id="modal-death" class="modal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <h2>游戏结束</h2>
+      <p class="final-score">最终得分：<span id="death-score">0</span></p>
+      <div class="modal-buttons">
+        <button class="btn btn-primary" id="btn-retry">重试</button>
+        <button class="btn btn-secondary" id="btn-exit-death">退出</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 5: PAUSE ==================== -->
+  <div id="modal-pause" class="modal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <h2>游戏暂停</h2>
+      <div class="modal-buttons">
+        <button class="btn btn-primary" id="btn-continue">继续</button>
+        <button class="btn btn-secondary" id="btn-exit-pause">退出</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ==================== JS: DOM REFERENCES ==================== */
+    const pageMenu = document.getElementById('page-menu');
+    const pageGame = document.getElementById('page-game');
+    const modalDifficulty = document.getElementById('modal-difficulty');
+    const modalDeath = document.getElementById('modal-death');
+    const modalPause = document.getElementById('modal-pause');
+
+    /* ==================== JS: GAME STATE & CONFIG ==================== */
+    const DIFFICULTY_CONFIG = {
+      easy:   { obstacles: 0,  bosses: 0, snakeSpeed: 150, bossSpeed: 0 },
+      normal: { obstacles: 8,  bosses: 1, snakeSpeed: 120, bossSpeed: 300 },
+      hard:   { obstacles: 15, bosses: 2, snakeSpeed: 90,  bossSpeed: 200 },
+    };
+
+    const GRID_SIZE = 25;
+    const CELL_SIZE = 20;
+
+    const gameState = {
+      difficulty: 'normal',
+      snake: [],
+      direction: 'right',
+      nextDirection: 'right',
+      food: null,
+      obstacles: [],
+      bosses: [],          // [{body: [{x,y},...], direction}, ...]  head at body[0]
+      score: 0,
+      isPaused: false,
+      isGameOver: false,
+      hasStarted: false,   // 蛇是否已开始移动
+      snakeIntervalId: null,
+      bossIntervals: [],
+    };
+
+    let canvasCtx = null;
+
+    /* ==================== JS: PAGE/MODAL MANAGEMENT ==================== */
+    function switchPage(pageId) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(pageId).classList.add('active');
+      hideAllModals();
+    }
+
+    function showModal(modalId) {
+      document.getElementById(modalId).classList.add('active');
+    }
+
+    function hideModal(modalId) {
+      document.getElementById(modalId).classList.remove('active');
+    }
+
+    function hideAllModals() {
+      document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
+    }
+
+    /* ==================== JS: CANVAS RENDERING ==================== */
+    function drawGrid() {
+      canvasCtx.strokeStyle = '#E8F0EE';
+      canvasCtx.lineWidth = 0.5;
+      for (let i = 0; i <= GRID_SIZE; i++) {
+        const pos = i * CELL_SIZE;
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(pos, 0);
+        canvasCtx.lineTo(pos, 500);
+        canvasCtx.stroke();
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(0, pos);
+        canvasCtx.lineTo(500, pos);
+        canvasCtx.stroke();
+      }
+    }
+
+    function drawCell(x, y, color) {
+      canvasCtx.fillStyle = color;
+      canvasCtx.fillRect(x * CELL_SIZE + 1, y * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+    }
+
+    function drawRoundedCell(x, y, color, radius) {
+      const px = x * CELL_SIZE + 1;
+      const py = y * CELL_SIZE + 1;
+      const size = CELL_SIZE - 2;
+      canvasCtx.fillStyle = color;
+      canvasCtx.beginPath();
+      canvasCtx.moveTo(px + radius, py);
+      canvasCtx.lineTo(px + size - radius, py);
+      canvasCtx.quadraticCurveTo(px + size, py, px + size, py + radius);
+      canvasCtx.lineTo(px + size, py + size - radius);
+      canvasCtx.quadraticCurveTo(px + size, py + size, px + size - radius, py + size);
+      canvasCtx.lineTo(px + radius, py + size);
+      canvasCtx.quadraticCurveTo(px, py + size, px, py + size - radius);
+      canvasCtx.lineTo(px, py + radius);
+      canvasCtx.quadraticCurveTo(px, py, px + radius, py);
+      canvasCtx.closePath();
+      canvasCtx.fill();
+    }
+
+    function drawSnake() {
+      gameState.snake.forEach((segment, index) => {
+        if (index === 0) {
+          drawRoundedCell(segment.x, segment.y, '#4A9A8C', 6);
+        } else {
+          drawRoundedCell(segment.x, segment.y, '#5CAC9D', 5);
+        }
+      });
+    }
+
+    function drawFood() {
+      if (!gameState.food) return;
+      const cx = gameState.food.x * CELL_SIZE + CELL_SIZE / 2;
+      const cy = gameState.food.y * CELL_SIZE + CELL_SIZE / 2;
+      const radius = CELL_SIZE / 2 - 2;
+      canvasCtx.fillStyle = '#FF6B6B';
+      canvasCtx.beginPath();
+      canvasCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+      canvasCtx.fill();
+      // highlight
+      canvasCtx.fillStyle = 'rgba(255,255,255,0.3)';
+      canvasCtx.beginPath();
+      canvasCtx.arc(cx - radius * 0.3, cy - radius * 0.3, radius * 0.35, 0, Math.PI * 2);
+      canvasCtx.fill();
+    }
+
+    function drawObstacles() {
+      gameState.obstacles.forEach(obs => {
+        canvasCtx.fillStyle = '#7F8C8D';
+        canvasCtx.fillRect(obs.x * CELL_SIZE + 2, obs.y * CELL_SIZE + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+        canvasCtx.strokeStyle = '#6C7A7B';
+        canvasCtx.lineWidth = 1;
+        canvasCtx.strokeRect(obs.x * CELL_SIZE + 2, obs.y * CELL_SIZE + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+      });
+    }
+
+    function drawBosses() {
+      gameState.bosses.forEach(boss => {
+        boss.body.forEach((seg, index) => {
+          if (index === 0) {
+            // Boss head: dark red, rounded
+            drawRoundedCell(seg.x, seg.y, '#C0392B', 6);
+            // Boss eyes
+            const cx = seg.x * CELL_SIZE + CELL_SIZE / 2;
+            const cy = seg.y * CELL_SIZE + CELL_SIZE / 2;
+            canvasCtx.fillStyle = '#FFFFFF';
+            canvasCtx.beginPath();
+            canvasCtx.arc(cx - 3, cy - 2, 2.5, 0, Math.PI * 2);
+            canvasCtx.fill();
+            canvasCtx.beginPath();
+            canvasCtx.arc(cx + 3, cy - 2, 2.5, 0, Math.PI * 2);
+            canvasCtx.fill();
+            canvasCtx.fillStyle = '#2C3E3F';
+            canvasCtx.beginPath();
+            canvasCtx.arc(cx - 3, cy - 2.5, 1, 0, Math.PI * 2);
+            canvasCtx.fill();
+            canvasCtx.beginPath();
+            canvasCtx.arc(cx + 3, cy - 2.5, 1, 0, Math.PI * 2);
+            canvasCtx.fill();
+          } else {
+            // Boss body: red
+            drawRoundedCell(seg.x, seg.y, '#E74C3C', 5);
+          }
+        });
+      });
+    }
+
+    function render() {
+      canvasCtx.clearRect(0, 0, 500, 500);
+      drawGrid();
+      drawObstacles();
+      drawFood();
+      drawBosses();
+      drawSnake();
+    }
+
+    /* ==================== JS: GAME LOGIC ==================== */
+    function initSnake() {
+      const mid = Math.floor(GRID_SIZE / 2);
+      gameState.snake = [
+        { x: mid, y: mid },
+        { x: mid - 1, y: mid },
+        { x: mid - 2, y: mid },
+      ];
+      gameState.direction = 'right';
+      gameState.nextDirection = 'right';
+    }
+
+    function getSafeZone() {
+      const safe = new Set();
+      gameState.snake.forEach(seg => {
+        for (let dx = -2; dx <= 2; dx++) {
+          for (let dy = -2; dy <= 2; dy++) {
+            const sx = seg.x + dx;
+            const sy = seg.y + dy;
+            if (sx >= 0 && sx < GRID_SIZE && sy >= 0 && sy < GRID_SIZE) {
+              safe.add(`${sx},${sy}`);
+            }
+          }
+        }
+      });
+      return safe;
+    }
+
+    function randomCell(excludeSet) {
+      const available = [];
+      for (let x = 0; x < GRID_SIZE; x++) {
+        for (let y = 0; y < GRID_SIZE; y++) {
+          if (!excludeSet.has(`${x},${y}`)) {
+            available.push({ x, y });
+          }
+        }
+      }
+      if (available.length === 0) return null;
+      return available[Math.floor(Math.random() * available.length)];
+    }
+
+    function generateObstacles(count) {
+      gameState.obstacles = [];
+      const occupied = new Set();
+      gameState.snake.forEach(s => occupied.add(`${s.x},${s.y}`));
+      gameState.obstacles.forEach(o => occupied.add(`${o.x},${o.y}`));
+
+      const safeZone = getSafeZone();
+
+      for (let i = 0; i < count; i++) {
+        const excludeAll = new Set([...occupied, ...safeZone]);
+        const cell = randomCell(excludeAll);
+        if (cell) {
+          gameState.obstacles.push(cell);
+          occupied.add(`${cell.x},${cell.y}`);
+        }
+      }
+    }
+
+    function generateBosses(count) {
+      gameState.bosses = [];
+      const occupied = new Set();
+      gameState.snake.forEach(s => occupied.add(`${s.x},${s.y}`));
+      gameState.obstacles.forEach(o => occupied.add(`${o.x},${o.y}`));
+      if (gameState.food) occupied.add(`${gameState.food.x},${gameState.food.y}`);
+
+      for (let i = 0; i < count; i++) {
+        const head = randomCell(occupied);
+        if (!head) continue;
+        occupied.add(`${head.x},${head.y}`);
+
+        // Build a 3-segment body for the boss (extending left from head)
+        const body = [{ x: head.x, y: head.y }];
+        let cx = head.x;
+        let cy = head.y;
+        for (let s = 1; s < 3; s++) {
+          const tailX = cx - 1;
+          const tailY = cy;
+          if (tailX < 0 || occupied.has(`${tailX},${tailY}`)) break;
+          body.push({ x: tailX, y: tailY });
+          occupied.add(`${tailX},${tailY}`);
+          cx = tailX;
+        }
+        // Ensure at least 2 segments
+        if (body.length < 2) {
+          // Try extending right instead
+          cx = head.x;
+          cy = head.y;
+          for (let s = 1; s < 3; s++) {
+            const tailX = cx + 1;
+            const tailY = cy;
+            if (tailX >= GRID_SIZE || occupied.has(`${tailX},${tailY}`)) break;
+            body.push({ x: tailX, y: tailY });
+            occupied.add(`${tailX},${tailY}`);
+            cx = tailX;
+          }
+        }
+
+        gameState.bosses.push({ body, direction: 'left' });
+      }
+    }
+
+    function spawnFood() {
+      const occupied = new Set();
+      gameState.snake.forEach(s => occupied.add(`${s.x},${s.y}`));
+      gameState.obstacles.forEach(o => occupied.add(`${o.x},${o.y}`));
+      gameState.bosses.forEach(b => b.body.forEach(seg => occupied.add(`${seg.x},${seg.y}`)));
+
+      const cell = randomCell(occupied);
+      if (cell) {
+        gameState.food = cell;
+      }
+    }
+
+    function getDirectionDelta(direction) {
+      switch (direction) {
+        case 'up': return { dx: 0, dy: -1 };
+        case 'down': return { dx: 0, dy: 1 };
+        case 'left': return { dx: -1, dy: 0 };
+        case 'right': return { dx: 1, dy: 0 };
+        default: return { dx: 0, dy: 0 };
+      }
+    }
+
+    function isOppositeDirection(dir1, dir2) {
+      return (
+        (dir1 === 'up' && dir2 === 'down') ||
+        (dir1 === 'down' && dir2 === 'up') ||
+        (dir1 === 'left' && dir2 === 'right') ||
+        (dir1 === 'right' && dir2 === 'left')
+      );
+    }
+
+    function isCellOccupiedBy(x, y, array) {
+      return array.some(item => item.x === x && item.y === y);
+    }
+
+    function gameTick() {
+      if (gameState.isPaused || gameState.isGameOver || !gameState.hasStarted) return;
+
+      // Apply queued direction
+      if (!isOppositeDirection(gameState.nextDirection, gameState.direction)) {
+        gameState.direction = gameState.nextDirection;
+      }
+
+      const { dx, dy } = getDirectionDelta(gameState.direction);
+      const head = gameState.snake[0];
+
+      // Calculate new head with wrap-around
+      let newX = head.x + dx;
+      let newY = head.y + dy;
+      if (newX < 0) newX = GRID_SIZE - 1;
+      if (newX >= GRID_SIZE) newX = 0;
+      if (newY < 0) newY = GRID_SIZE - 1;
+      if (newY >= GRID_SIZE) newY = 0;
+
+      // Collision: obstacles
+      if (isCellOccupiedBy(newX, newY, gameState.obstacles)) {
+        handleDeath();
+        return;
+      }
+
+      // Collision: bosses (check all body segments)
+      for (const boss of gameState.bosses) {
+        if (isCellOccupiedBy(newX, newY, boss.body)) {
+          handleDeath();
+          return;
+        }
+      }
+
+      // Collision: self (skip tail since it will be removed unless eating)
+      const willGrow = gameState.food && newX === gameState.food.x && newY === gameState.food.y;
+      const bodyToCheck = willGrow ? gameState.snake : gameState.snake.slice(0, -1);
+      if (isCellOccupiedBy(newX, newY, bodyToCheck)) {
+        handleDeath();
+        return;
+      }
+
+      // Move snake
+      gameState.snake.unshift({ x: newX, y: newY });
+
+      // Check food
+      if (gameState.food && newX === gameState.food.x && newY === gameState.food.y) {
+        gameState.score++;
+        updateScoreDisplay();
+        spawnFood();
+        // Snake grows by NOT popping the tail
+      } else {
+        gameState.snake.pop();
+      }
+
+      render();
+    }
+
+    function bossTick(index) {
+      if (gameState.isPaused || gameState.isGameOver) return;
+      const boss = gameState.bosses[index];
+      const head = boss.body[0];
+      const food = gameState.food;
+
+      if (!food) return;
+
+      // Choose direction toward food (prefer axis with larger distance)
+      const dx = food.x - head.x;
+      const dy = food.y - head.y;
+
+      // Account for wrap-around: choose the shorter path
+      const wrapDx = dx > 0 ? dx - GRID_SIZE : dx + GRID_SIZE;
+      const wrapDy = dy > 0 ? dy - GRID_SIZE : dy + GRID_SIZE;
+      const useWrapX = Math.abs(wrapDx) < Math.abs(dx);
+      const useWrapY = Math.abs(wrapDy) < Math.abs(dy);
+      const bestDx = useWrapX ? wrapDx : dx;
+      const bestDy = useWrapY ? wrapDy : dy;
+
+      // Build direction priority list (closest to food first)
+      const dirPriority = [];
+      if (Math.abs(bestDx) >= Math.abs(bestDy)) {
+        dirPriority.push(bestDx > 0 ? 'right' : 'left');
+        dirPriority.push(bestDy > 0 ? 'down' : 'up');
+      } else {
+        dirPriority.push(bestDy > 0 ? 'down' : 'up');
+        dirPriority.push(bestDx > 0 ? 'right' : 'left');
+      }
+      // Add remaining directions
+      ['up', 'down', 'left', 'right'].forEach(d => {
+        if (!dirPriority.includes(d)) dirPriority.push(d);
+      });
+
+      for (const dir of dirPriority) {
+        const { dx: ddx, dy: ddy } = getDirectionDelta(dir);
+        let newX = head.x + ddx;
+        let newY = head.y + ddy;
+        // Wrap edges
+        if (newX < 0) newX = GRID_SIZE - 1;
+        if (newX >= GRID_SIZE) newX = 0;
+        if (newY < 0) newY = GRID_SIZE - 1;
+        if (newY >= GRID_SIZE) newY = 0;
+
+        // Avoid obstacles and own body
+        if (!isCellOccupiedBy(newX, newY, gameState.obstacles) &&
+            !isCellOccupiedBy(newX, newY, boss.body)) {
+          // Move boss
+          boss.body.unshift({ x: newX, y: newY });
+          boss.direction = dir;
+
+          // Check if boss ate food
+          if (gameState.food && newX === gameState.food.x && newY === gameState.food.y) {
+            spawnFood();
+            // Boss doesn't grow (pop tail)
+          }
+          boss.body.pop();
+
+          // Check if boss head hit the player
+          const bossHead = boss.body[0];
+          if (isCellOccupiedBy(bossHead.x, bossHead.y, gameState.snake)) {
+            handleDeath();
+          }
+          break;
+        }
+      }
+      render();
+    }
+
+    function startGameLoop() {
+      const config = DIFFICULTY_CONFIG[gameState.difficulty];
+      stopGameLoop();
+      gameState.snakeIntervalId = setInterval(gameTick, config.snakeSpeed);
+      gameState.bosses.forEach((boss, index) => {
+        if (config.bossSpeed > 0) {
+          gameState.bossIntervals.push(setInterval(() => bossTick(index), config.bossSpeed));
+        }
+      });
+    }
+
+    function stopGameLoop() {
+      if (gameState.snakeIntervalId) {
+        clearInterval(gameState.snakeIntervalId);
+        gameState.snakeIntervalId = null;
+      }
+      gameState.bossIntervals.forEach(id => clearInterval(id));
+      gameState.bossIntervals = [];
+    }
+
+    function initGame() {
+      stopGameLoop();
+      gameState.score = 0;
+      gameState.isPaused = false;
+      gameState.isGameOver = false;
+      gameState.hasStarted = false;
+      gameState.bossIntervals = [];
+
+      initSnake();
+      generateObstacles(DIFFICULTY_CONFIG[gameState.difficulty].obstacles);
+      generateBosses(DIFFICULTY_CONFIG[gameState.difficulty].bosses);
+      spawnFood();
+      updateScoreDisplay();
+      render();
+
+      // Draw "press any key to start" overlay
+      drawStartHint();
+    }
+
+    function drawStartHint() {
+      // Semi-transparent overlay with hint text
+      canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+      canvasCtx.fillRect(0, 0, 500, 500);
+      canvasCtx.fillStyle = '#FFFFFF';
+      canvasCtx.font = 'bold 20px "PingFang SC", "Microsoft YaHei", sans-serif';
+      canvasCtx.textAlign = 'center';
+      canvasCtx.textBaseline = 'middle';
+      canvasCtx.fillText('按方向键或 WASD 开始', 250, 250);
+    }
+
+    function updateScoreDisplay() {
+      document.getElementById('score-display').textContent = `分数：${gameState.score}`;
+    }
+
+    function handleDeath() {
+      gameState.isGameOver = true;
+      stopGameLoop();
+      document.getElementById('death-score').textContent = gameState.score;
+      showModal('modal-death');
+    }
+
+    /* ==================== JS: INPUT HANDLING ==================== */
+    document.addEventListener('keydown', (e) => {
+      const key = e.key.toLowerCase();
+
+      // P key toggles pause (only after game started)
+      if (key === 'p') {
+        if (gameState.isGameOver || !gameState.hasStarted) return;
+        if (gameState.isPaused) {
+          // Resume
+          gameState.isPaused = false;
+          hideModal('modal-pause');
+          startGameLoop();
+        } else {
+          // Pause (only if in game page)
+          if (document.getElementById('page-game').classList.contains('active')) {
+            gameState.isPaused = true;
+            stopGameLoop();
+            showModal('modal-pause');
+          }
+        }
+        return;
+      }
+
+      // Ignore direction keys if paused or game over
+      if (gameState.isPaused || gameState.isGameOver) return;
+
+      let newDir = null;
+      switch (key) {
+        case 'arrowup': case 'w': newDir = 'up'; break;
+        case 'arrowdown': case 's': newDir = 'down'; break;
+        case 'arrowleft': case 'a': newDir = 'left'; break;
+        case 'arrowright': case 'd': newDir = 'right'; break;
+      }
+
+      if (newDir) {
+        e.preventDefault();
+        gameState.nextDirection = newDir;
+
+        // Start game on first direction keypress
+        if (!gameState.hasStarted) {
+          gameState.hasStarted = true;
+          gameState.direction = newDir;
+          startGameLoop();
+        }
+      }
+    });
+
+    /* ==================== JS: EVENT BINDINGS ==================== */
+    // Page 1 buttons
+    document.getElementById('btn-start').addEventListener('click', () => {
+      switchPage('page-game');
+      initGame();
+    });
+
+    document.getElementById('btn-settings').addEventListener('click', () => {
+      showModal('modal-difficulty');
+    });
+
+    // Game page gear icon
+    document.getElementById('btn-gear').addEventListener('click', () => {
+      if (!gameState.isGameOver && gameState.hasStarted) {
+        gameState.isPaused = true;
+        stopGameLoop();
+        showModal('modal-pause');
+      }
+    });
+
+    // Difficulty modal — selection
+    document.querySelectorAll('.btn-difficulty').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.btn-difficulty').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        gameState.difficulty = btn.dataset.difficulty;
+        hideModal('modal-difficulty');
+      });
+    });
+
+    // Difficulty modal — close on backdrop click
+    modalDifficulty.querySelector('.modal-backdrop').addEventListener('click', () => {
+      hideModal('modal-difficulty');
+    });
+
+    // Death modal buttons
+    document.getElementById('btn-retry').addEventListener('click', () => {
+      hideModal('modal-death');
+      initGame();
+    });
+
+    document.getElementById('btn-exit-death').addEventListener('click', () => {
+      hideModal('modal-death');
+      switchPage('page-menu');
+    });
+
+    // Pause modal buttons
+    document.getElementById('btn-continue').addEventListener('click', () => {
+      hideModal('modal-pause');
+      gameState.isPaused = false;
+      startGameLoop();
+    });
+
+    document.getElementById('btn-exit-pause').addEventListener('click', () => {
+      hideModal('modal-pause');
+      stopGameLoop();
+      switchPage('page-menu');
+    });
+
+    /* ==================== JS: CANVAS INITIALIZATION ==================== */
+    const canvas = document.getElementById('game-canvas');
+    canvasCtx = canvas.getContext('2d');
+
+    console.log('🐍 贪吃蛇游戏已就绪！');
+    console.log(`当前难度：${gameState.difficulty}`);
+  </script>
+</body>
+</html>
